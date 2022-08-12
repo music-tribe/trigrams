@@ -10,6 +10,18 @@ import (
 	"time"
 )
 
+func main() {
+	nwordsneeded := 50
+	rand.Seed(time.Now().UnixNano())
+	if !validateInput(os.Args) {
+		return
+	}
+	trigrams := filereader(os.Args[1])
+	start := initoutstr(trigrams)
+	fmt.Println(generatetext(start, nwordsneeded, trigrams))
+
+}
+
 func validateInput(args []string) bool {
 	if len(args) != 2 {
 		fmt.Println("Usage:")
@@ -17,37 +29,6 @@ func validateInput(args []string) bool {
 		return false
 	}
 	return true
-}
-
-func check(e error) {
-	if e != nil {
-		panic(e)
-	}
-}
-
-func generatetext(start string, nwordsneeded int, trigrams []string) string {
-	//Finds the matching trigrams and randomly selects one to continue, does this recursively until desired number of words is reached.
-	nextcanditates := make([]string, 0)
-	words := strings.Fields(start)
-	lastwords := words[len(words)-2] + " " + words[len(words)-1]
-	for _, trigram := range trigrams {
-		//compare the last 2 words of the input text with the first two words of each digram and select canditates
-		if lastwords == trigram[:strings.LastIndex(trigram, " ")] {
-			nextword := trigram[strings.LastIndex(trigram, " ")+1:]
-			nextcanditates = append(nextcanditates, nextword)
-		}
-	}
-	if len(nextcanditates) > 1 {
-		randindx := rand.Intn(len(nextcanditates) - 1)
-		start = start + " " + nextcanditates[randindx]
-	} else {
-		start = start + " " + nextcanditates[0]
-	}
-	if len(strings.Fields(start)) < nwordsneeded {
-		start = generatetext(start, nwordsneeded, trigrams)
-	}
-	return start
-
 }
 
 func filereader(path string) []string {
@@ -76,9 +57,14 @@ func filereader(path string) []string {
 	return trigrams
 }
 
+func check(e error) {
+	if e != nil {
+		panic(e)
+	}
+}
+
 func initoutstr(trigrams []string) string {
 	//Randomly selects a trigram that starts with capital leter to start the generation
-	var start string
 	startcanditates := make([]string, 0)
 	r, _ := regexp.Compile("[A-Z]")
 	for i := 0; i < len(trigrams); i++ {
@@ -87,23 +73,39 @@ func initoutstr(trigrams []string) string {
 			startcanditates = append(startcanditates, trigram)
 		}
 	}
-	rand.Seed(time.Now().UnixNano())
-	if len(startcanditates) > 1 {
-		randindx := rand.Intn(len(startcanditates) - 1)
-		start = startcanditates[randindx]
-	} else {
-		start = startcanditates[0]
+	return PickRandomlyFromCanditates(startcanditates)
+}
+
+func PickRandomlyFromCanditates(canditates []string) string {
+	if len(canditates) > 1 {
+		randindx := rand.Intn(len(canditates))
+		return canditates[randindx]
+	} else if len(canditates) > 0 {
+		return canditates[0]
+	}
+	return "error!"
+}
+
+func generatetext(start string, nwordsneeded int, trigrams []string) string {
+	//Finds the matching trigrams and randomly selects one to continue, does this recursively until desired number of words is reached.
+	nextcanditates, _ := getnextcanditates(start, trigrams)
+	start = start + " " + PickRandomlyFromCanditates(nextcanditates)
+	if len(strings.Fields(start)) < nwordsneeded {
+		start = generatetext(start, nwordsneeded, trigrams)
 	}
 	return start
 }
 
-func main() {
-	nwordsneeded := 50
-	if !validateInput(os.Args) {
-		return
+func getnextcanditates(start string, trigrams []string) ([]string, int) {
+	words := strings.Fields(start)
+	lastwords := words[len(words)-2] + " " + words[len(words)-1]
+	nextcanditates := make([]string, 0)
+	for _, trigram := range trigrams {
+		//compare the last 2 words of the input text with the first two words of each digram and select canditates
+		if lastwords == trigram[:strings.LastIndex(trigram, " ")] {
+			nextword := trigram[strings.LastIndex(trigram, " ")+1:]
+			nextcanditates = append(nextcanditates, nextword)
+		}
 	}
-	trigrams := filereader(os.Args[1])
-	start := initoutstr(trigrams)
-	fmt.Println(generatetext(start, nwordsneeded, trigrams))
-
+	return nextcanditates, len(nextcanditates)
 }
